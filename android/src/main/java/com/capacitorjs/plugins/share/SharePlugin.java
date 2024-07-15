@@ -30,15 +30,19 @@ public class SharePlugin extends Plugin {
 
     @Override
     public void load() {
-        broadcastReceiver =
-            new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    chosenComponent = intent.getParcelableExtra(Intent.EXTRA_CHOSEN_COMPONENT);
-                }
-            };
-        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(Intent.EXTRA_CHOSEN_COMPONENT));
-    }
+      broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+          chosenComponent = intent.getParcelableExtra(Intent.EXTRA_CHOSEN_COMPONENT);
+        }
+      };
+      IntentFilter filter = new IntentFilter(Intent.EXTRA_CHOSEN_COMPONENT);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getActivity().registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED);
+      } else {
+        getActivity().registerReceiver(broadcastReceiver, filter);
+  }
+}
 
     @ActivityCallback
     private void activityResult(PluginCall call, ActivityResult result) {
@@ -103,13 +107,13 @@ public class SharePlugin extends Plugin {
             if (files != null && files.length() != 0) {
                 shareFiles(files, intent, call);
             }
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                flags = flags | PendingIntent.FLAG_MUTABLE;
-            }
+           int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
 
-            // requestCode parameter is not used. Providing 0
-            PendingIntent pi = PendingIntent.getBroadcast(getContext(), 0, new Intent(Intent.EXTRA_CHOSEN_COMPONENT), flags);
+            Intent chosenComponentIntent = new Intent(Intent.EXTRA_CHOSEN_COMPONENT);
+            // Make sure the intent is explicit
+            chosenComponentIntent.setPackage(getContext().getPackageName());
+
+            PendingIntent pi = PendingIntent.getBroadcast(getContext(), 0, chosenComponentIntent, flags);
             Intent chooser = Intent.createChooser(intent, dialogTitle, pi.getIntentSender());
             chosenComponent = null;
             chooser.addCategory(Intent.CATEGORY_DEFAULT);
